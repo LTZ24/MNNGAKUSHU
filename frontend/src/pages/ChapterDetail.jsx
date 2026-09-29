@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
-import { Ruby } from "@/components/Ruby";
+import { Ruby, RubyText } from "@/components/Ruby";
 import KanjiStroke, { StrokeSteps } from "@/components/KanjiStroke";
 
 const TABS = [
@@ -71,7 +71,7 @@ function BunpoView({ items }) {
           <div className="content-label">POLA</div>
           <h3>{b.judul}</h3>
           <div className="rumus">{b.rumus}</div>
-          {b.keterangan?.length > 0 && <ul className="keterangan">{b.keterangan.map((k, i) => <li key={i}>{k}</li>)}</ul>}
+          {b.keterangan?.length > 0 && <ul className="keterangan">{b.keterangan.map((k, i) => <li key={i}><RubyText text={k} /></li>)}</ul>}
           <p className="muted">{b.penjelasan}</p>
           {b.contoh?.length > 0 && (
             <div className="contoh-block">
@@ -164,7 +164,7 @@ function KaiwaView({ data }) {
       <div className="dialog">
         {data.dialog.map((line, i) => (
           <div className="dialog-line" key={i} data-testid={`kaiwa-line-${i}`}>
-            <div className="speaker"><b>{line.speaker}</b><small>{line.speaker_reading}</small></div>
+            <div className="speaker"><b><RubyText text={line.speaker} /></b><small>{line.speaker_reading}</small></div>
             <div className="speech">
               <Ruby segments={line.segments} />
               <span>{line.translation}</span>

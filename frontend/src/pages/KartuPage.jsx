@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { RubyText } from "@/components/Ruby";
 import { Link } from "react-router-dom";
 import { api, errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -111,7 +112,7 @@ export default function KartuPage() {
             </div>
             {flipped ? (
               <div className="fc-back">
-                <b>{card.back}</b>
+                <b><RubyText text={card.back} /></b>
                 {card.extra && <small className="muted">{card.extra}</small>}
               </div>
             ) : (

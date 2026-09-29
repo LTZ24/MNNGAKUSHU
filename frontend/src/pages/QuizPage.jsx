@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api, errorText } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Ruby } from "@/components/Ruby";
+import { Ruby, RubyText } from "@/components/Ruby";
 import SusunPicker from "@/components/SusunPicker";
 import BabPicker from "@/components/BabPicker";
 
@@ -133,7 +133,7 @@ function QuizPlay({ session, answers, setAnswers, onSubmit, busy, error, onCance
             {idx + 1}.{" "}
             {q.kind === "kanji" && <span className="ja-title" style={{ fontSize: 44, marginRight: 12 }}>{q.stem}</span>}
             {q.kind === "kotoba" && <span className="ja-title" style={{ fontSize: 22, marginRight: 12 }}>{q.stem}</span>}
-            {q.kind === "bunpo" && q.stem}
+            {q.kind === "bunpo" && <RubyText text={q.stem} />}
             {q.kind === "susun" && <>Susun kalimat: <em>“{q.stem}”</em></>}
           </b>
           {q.hint && <small className="muted"> ({q.hint})</small>}
@@ -143,7 +143,7 @@ function QuizPlay({ session, answers, setAnswers, onSubmit, busy, error, onCance
               {q.options.map((opt) => (
                 <button key={opt} className={answers[q.id] === opt ? "selected" : ""}
                         onClick={() => setAnswers({ ...answers, [q.id]: opt })}
-                        data-testid={`quiz-option-${idx}-${opt}`}>{opt}</button>
+                        data-testid={`quiz-option-${idx}-${opt}`}><RubyText text={opt} /></button>
               ))}
             </div>
           ) : (
@@ -186,10 +186,10 @@ function QuizResult({ result, session, onRestart, onRetake }) {
             <div key={it.id} className={`result-row ${it.is_correct ? "ok" : "wrong"}`} data-testid={`result-row-${i}`}>
               <span className="result-idx">{i + 1}</span>
               <div>
-                <b>{kind === "susun" ? `“${q?.stem}”` : q?.stem}</b>
+                <b>{kind === "susun" ? `“${q?.stem}”` : <RubyText text={q?.stem} />}</b>
                 <small>
-                  Jawabanmu: <em>{formatPicked(it.picked, kind)}</em>
-                  {" · "}Benar: <em>{formatPicked(it.correct_value, kind)}</em>
+                  Jawabanmu: <em><RubyText text={formatPicked(it.picked, kind)} /></em>
+                  {" · "}Benar: <em><RubyText text={formatPicked(it.correct_value, kind)} /></em>
                 </small>
                 {it.explanation && <p className="muted">{it.explanation}</p>}
               </div>

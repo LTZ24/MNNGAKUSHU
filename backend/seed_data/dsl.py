@@ -57,18 +57,26 @@ def BUNPO(
     }
 
 
+def _word_spec(word: str, kana: str) -> tuple[str, list[dict]]:
+    """Word may carry DSL furigana ('先生|せんせい'); return (plain word, segments)."""
+    spec = word if "|" in word else (f"{word}|{kana}" if _KANJI_RE.search(word) else word)
+    segs = S(spec)
+    return "".join(s["text"] for s in segs), segs
+
+
 def KOTOBA(
     id: str, word: str, kana: str, romaji: str, meaning: str, word_type: str,
     example: tuple[str, str], display: str | None = None,
 ) -> dict:
+    plain_word, segs = _word_spec(word, kana)
     return {
         "id": id,
-        "word": word,
+        "word": plain_word,
         "kana": kana,
         "romaji": romaji,
         "meaning": meaning,
         "word_type": word_type,
-        "segments": S(display or (f"{word}|{kana}" if _KANJI_RE.search(word) else word)),
+        "segments": S(display) if display else segs,
         "example": EX(example[0], example[1]),
     }
 
@@ -86,10 +94,10 @@ def KANJI(
         "stroke_count": strokes,
         "jukugo": [
             {
-                "word": w,
+                "word": _word_spec(w, k)[0],
                 "kana": k,
                 "meaning": m,
-                "segments": S(f"{w}|{k}" if _KANJI_RE.search(w) else w),
+                "segments": _word_spec(w, k)[1],
             }
             for w, k, m in jukugo
         ],

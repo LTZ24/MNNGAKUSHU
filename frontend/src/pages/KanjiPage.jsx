@@ -78,7 +78,6 @@ export default function KanjiPage() {
               {(card.jukugo || []).slice(0, 4).map((j, i) => (
                 <li key={i} data-testid={`kanji-example-${i}`}>
                   <Ruby segments={j.segments && j.segments.length ? j.segments : [{ text: j.word, reading: j.kana || null }]} />
-                  <small className="hira">{j.kana}</small>
                   <span>{j.meaning}</span>
                 </li>
               ))}

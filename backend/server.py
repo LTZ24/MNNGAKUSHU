@@ -20,6 +20,7 @@ from pymongo.errors import DuplicateKeyError
 from starlette.middleware.cors import CORSMiddleware
 
 from seed_data.loader import ALL_CHAPTERS, chapter_summary
+from seed_data.dsl import _word_spec
 from quiz_generator import generate_extra_bunpo_questions
 from jukugo_generator import generate_extra_jukugo
 
@@ -168,6 +169,23 @@ async def seed_chapters():
         log.info("Seeded %d new chapters (numbers: %s)", len(docs), [d["number"] for d in docs])
 
 
+async def fix_word_markup():
+    """One-time idempotent repair: words stored with DSL markup ('先生|せんせい') doubled furigana."""
+    async for doc in db.chapters.find({"$or": [{"content.kotoba.word": {"$regex": r"\|"}},
+                                               {"content.kanji.jukugo.word": {"$regex": r"\|"}}]}, {"_id": 0, "number": 1, "content": 1}):
+        content = doc["content"]
+        items = list(content.get("kotoba", [])) + [j for k in content.get("kanji", []) for j in k.get("jukugo", [])]
+        for it in items:
+            if "|" not in (it.get("word") or ""):
+                continue
+            plain_word, segs = _word_spec(it["word"], it.get("kana", ""))
+            it["word"] = plain_word
+            if any("|" in (s.get("reading") or "") for s in it.get("segments", [])):
+                it["segments"] = segs
+        await db.chapters.update_one({"number": doc["number"]}, {"$set": {"content": content}})
+        log.info("Repaired furigana markup in chapter %s", doc["number"])
+
+
 @app.on_event("startup")
 async def startup():
     await db.users.create_index("email", unique=True)
@@ -183,6 +201,7 @@ async def startup():
         pass
     await db.chapters.create_index("number", unique=True)
     await seed_chapters()
+    await fix_word_markup()
     admin_email = os.environ.get("ADMIN_EMAIL")
     admin_password = os.environ.get("ADMIN_PASSWORD")
     if admin_email and admin_password:

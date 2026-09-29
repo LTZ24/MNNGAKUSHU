@@ -3,8 +3,9 @@
 .ja-title, .ja-ruby, .ja-cell .ja-title {
   font-family: 'Shippori Mincho', 'Yu Mincho', serif;
 }
-ruby { ruby-position: over; }
+ruby { ruby-position: over; ruby-align: center; }
 ruby rt {
+  ruby-align: center;
   font-size: 0.55em;
   color: var(--muted);
   letter-spacing: 0.03em;
