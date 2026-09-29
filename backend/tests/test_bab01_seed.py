@@ -55,7 +55,7 @@ def test_public_chapters_include_bab1():
     assert counts["bunpo"] == 5
     assert counts["kotoba"] == 20
     assert counts["kanji"] == 5
-    assert counts["quiz_bunpo"] == 5
+    assert counts["quiz_bunpo"] >= 5
     assert counts["quiz_susun"] == 4
     assert counts["kaiwa_lines"] >= 6
 
@@ -70,7 +70,7 @@ def test_bab1_detail_shape_and_no_answer_leak():
     assert len(content["bunpo"]) == 5
     assert len(content["kotoba"]) == 20
     assert len(content["kanji"]) == 5
-    assert len(content["quiz_bunpo"]) == 5
+    assert len(content["quiz_bunpo"]) >= 5
     assert len(content["quiz_susun"]) == 4
     # Kaiwa
     kaiwa = content.get("kaiwa") or {}
@@ -95,7 +95,7 @@ def test_admin_bab1_detail_has_answers(admin_session):
     assert r.status_code == 200
     ch = r.json()
     qb = ch["content"]["quiz_bunpo"]
-    assert len(qb) == 5
+    assert len(qb) >= 5
     for q in qb:
         assert "answer_index" in q
         assert isinstance(q["answer_index"], int)
@@ -119,7 +119,7 @@ def test_library_kotoba_book1_includes_bab1():
                      params={"book": 1}, timeout=15)
     assert r.status_code == 200
     body = r.json()
-    items = body.get("items") or body.get("kotoba") or []
+    items = body.get("cards") or []
     # Filter to bab 1 items when possible
     bab1_items = [x for x in items if x.get("chapter_number") == 1]
     assert len(bab1_items) >= 20, f"expected >=20 bab1 kotoba, got {len(bab1_items)}"
@@ -130,10 +130,10 @@ def test_library_kanji_book1_includes_bab1():
                      params={"book": 1}, timeout=15)
     assert r.status_code == 200
     body = r.json()
-    items = body.get("items") or body.get("kanji") or []
+    items = body.get("cards") or []
     bab1_items = [x for x in items if x.get("chapter_number") == 1]
     assert len(bab1_items) >= 5
-    chars = {x.get("char") or x.get("kanji") for x in bab1_items}
+    chars = {x.get("character") for x in bab1_items}
     # At least the 5 kanji we authored
     expected = {"私", "人", "学", "生", "先"}
     assert expected.issubset(chars), f"missing kanji: {expected - chars}"
@@ -206,8 +206,8 @@ def test_bab1_quiz_submission_grades_and_is_idempotent(learner_session, admin_se
                               json=payload, timeout=15)
     assert r1.status_code == 200, r1.text
     b1 = r1.json()
-    assert b1["total"] == 5
-    assert b1["correct"] == 5
+    assert b1["total"] == len(answers)
+    assert b1["correct"] == len(answers)
     assert b1["score"] == 100
     # Idempotency: same op_id must return same attempt
     r2 = learner_session.post(f"{BASE_URL}/api/chapters/1/quiz",

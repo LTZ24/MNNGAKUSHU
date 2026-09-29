@@ -9,6 +9,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import bcrypt
 import jwt
@@ -176,7 +177,10 @@ async def startup():
     await db.card_reviews.create_index([("user_id", 1), ("card_id", 1)], unique=True)
     await db.card_reviews.create_index([("user_id", 1), ("due_at", 1)])
     await db.login_attempts.create_index("identifier", unique=True)
-    await db.users.create_index("reset_expires_at", expireAfterSeconds=0)
+    try:
+        await db.users.drop_index("reset_expires_at_1")
+    except Exception:
+        pass
     await db.chapters.create_index("number", unique=True)
     await seed_chapters()
     admin_email = os.environ.get("ADMIN_EMAIL")
@@ -233,10 +237,12 @@ async def login(data: Credentials, response: Response, request: Request):
     attempt = await db.login_attempts.find_one({"identifier": identifier}, {"_id": 0})
     if attempt and attempt.get("locked_until") and datetime.fromisoformat(attempt["locked_until"]) > now:
         raise HTTPException(429, "Terlalu banyak percobaan. Coba lagi 15 menit lagi")
+    if attempt and datetime.fromisoformat(attempt["last_attempt"]) < now - timedelta(minutes=15):
+        attempt = None
     user = await db.users.find_one({"email": data.email.lower()}, {"_id": 0})
     if not user or not verify_password(data.password, user["password_hash"]):
         failures = (attempt.get("failures", 0) if attempt else 0) + 1
-        update = {"failures": failures, "last_attempt": now.isoformat()}
+        update = {"failures": failures, "last_attempt": now.isoformat(), "locked_until": None}
         if failures >= 5:
             update["locked_until"] = (now + timedelta(minutes=15)).isoformat()
         await db.login_attempts.update_one(
@@ -252,7 +258,14 @@ async def login(data: Credentials, response: Response, request: Request):
     return public_user(user)
 
 @api.post("/auth/logout")
-async def logout(response: Response, user: dict = Depends(current_user)):
+async def logout(response: Response, refresh_token: Optional[str] = Cookie(default=None)):
+    if refresh_token:
+        try:
+            payload = jwt.decode(refresh_token, token_secret(), algorithms=[JWT_ALGORITHM],
+                                 options={"verify_exp": False})
+            await db.sessions.delete_one({"jti": payload.get("jti")})
+        except jwt.InvalidTokenError:
+            pass
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"message": "Berhasil keluar"}
@@ -277,20 +290,21 @@ async def refresh(response: Response, refresh_token: Optional[str] = Cookie(defa
 
 @api.post("/auth/forgot-password")
 async def forgot_password(data: EmailRequest):
-    email = data.email.lower()
-    user = await db.users.find_one({"email": email}, {"_id": 0})
+    return {"message": "Permintaan diterima. Hubungi admin untuk mendapatkan password sementara."}
+
+@api.post("/admin/users/reset-password")
+async def admin_reset_password(data: EmailRequest, _: dict = Depends(admin_only)):
+    user = await db.users.find_one({"email": data.email.lower()}, {"_id": 0})
     if not user:
         raise HTTPException(404, "Tidak ada akun untuk email ini")
     temporary = secrets.token_urlsafe(9)
     await db.users.update_one(
         {"id": user["id"]},
-        {"$set": {"password_hash": hash_password(temporary), "must_change_password": True,
-                  "reset_expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()}},
+        {"$set": {"password_hash": hash_password(temporary), "must_change_password": True}},
     )
-    return {
-        "message": "Password sementara dibuat. Pakai sekali lalu ubah passwordnya.",
-        "temporary_password": temporary,
-    }
+    await db.sessions.delete_many({"user_id": user["id"]})
+    return {"email": user["email"], "temporary_password": temporary,
+            "message": "Password sementara dibuat. Berikan ke pengguna secara pribadi."}
 
 @api.post("/auth/change-password")
 async def change_password(data: PasswordChange, user: dict = Depends(current_user)):
@@ -349,8 +363,9 @@ async def chapter_detail(number: int):
         for q in content.get("quiz_bunpo", [])
     ]
     content["quiz_susun"] = [
-        {k: v for k, v in q.items() if k not in {"correct_order"}}
-        # keep distractors to render buttons, but obscure correct order
+        {**{k: v for k, v in q.items() if k != "correct_order"},
+         "tokens": random.sample(tokens := list(q.get("correct_order", [])) + list(q.get("distractors", [])), len(tokens)),
+         "correct_length": len(q.get("correct_order", []))}
         for q in content.get("quiz_susun", [])
     ]
     return {**public_chapter(doc, include_content=False), "content": content}
@@ -438,22 +453,24 @@ async def submit_chapter_quiz(number: int, data: QuizSubmission, user: dict = De
 
 
 @api.get("/progress")
-async def get_progress(user: dict = Depends(learner)):
+async def get_progress(request: Request, user: dict = Depends(learner)):
     prog = await db.progress.find({"user_id": user["id"]}, {"_id": 0, "user_id": 0}).to_list(500)
     attempts = await db.attempts.find(
-        {"user_id": user["id"]}, {"_id": 0, "user_id": 0, "items": 0}
-    ).sort("created_at", -1).to_list(60)
+        {"user_id": user["id"]}, {"_id": 0, "user_id": 0, "items": 0, "raw_answers": 0}
+    ).sort("created_at", -1).to_list(None)
     total_chapters = await db.chapters.count_documents({"published": True})
     done_numbers = {p["chapter_number"] for p in prog if p.get("completed")}
-    # Streak: consecutive distinct-date attempts ending today (JST-agnostic UTC)
+    try:
+        tz = ZoneInfo(request.headers.get("x-timezone") or "Asia/Jakarta")
+    except (ZoneInfoNotFoundError, ValueError):
+        tz = ZoneInfo("Asia/Jakarta")
     dates = set()
     for a in attempts:
         try:
-            dates.add(a["created_at"][:10])
-        except (KeyError, TypeError):
+            dates.add(datetime.fromisoformat(a["created_at"]).astimezone(tz).date().isoformat())
+        except (KeyError, TypeError, ValueError):
             pass
-    from datetime import date
-    today = datetime.now(timezone.utc).date()
+    today = datetime.now(tz).date()
     streak = 0
     for i in range(60):
         d = (today - timedelta(days=i)).isoformat()

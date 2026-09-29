@@ -1,0 +1,49 @@
+{
+  "summary": "Iteration 10 full backend + frontend regression. Created /app/backend/tests/test_iteration10_full.py with 34 tests covering auth (register/login/me/refresh/logout/forgot/change/lockout), public chapters, library (all 5 quiz types + campuran + attempt idempotency + weak-items + SM-2 review + due-cards + auth gating), progress (auth + 50-chapter check), admin authz + CRUD + publish toggle + reset + pad-quiz + pad-all polling. All 34 tests PASS. Brute-force lockout works (429 after 5 wrong logins). Frontend smoke-tested on desktop 1920x1080 and mobile 390x844: /bab renders 50 chapters, Minna 1/Minna 2/Semua filters present, /bab/1 has all 4 tabs (Bunpou/Kotoba/Kanji/Kaiwa), /quiz loads, unauth /progres and /admin correctly redirect to /login, mobile hamburger nav present, no horizontal overflow on Beranda or /bab (scrollWidth=390). CRITICAL SECURITY BUG CONFIRMED: /api/auth/forgot-password returns `temporary_password` in plain response body to any anonymous caller for ANY email — proven via test that anyone can log in as admin (mpdigitech.id@gmail.com) by simply calling this endpoint. Admin password restored to Admin@2026 after test; login_attempts collection cleared at the end.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/forgot-password", "issue": "SECURITY / ACCOUNT TAKEOVER — Endpoint returns the fresh `temporary_password` in the JSON response body to any unauthenticated caller. An attacker can POST {\"email\":\"mpdigitech.id@gmail.com\"} and receive a valid admin password. Test test_forgot_password_leaks_temporary_in_response and test_forgot_password_admin_vulnerable both confirm the takeover. Fix: never return the temp password; deliver via out-of-band channel (email) OR generate a one-time reset token stored server-side and let the user set a new password through /auth/reset-password using that token. As an immediate mitigation, remove `temporary_password` from the response and return only the message; better: require an authenticated admin to trigger reset for another user.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/auth/forgot-password", "issue": "User enumeration — returns 404 for unknown email vs 200 for known. Prefer generic 200 with same body to avoid leaking membership."},
+      {"endpoint": "POST /api/auth/forgot-password", "issue": "No rate limiting / lockout on this endpoint (unlike /auth/login). Attacker can spam-reset a target's password to lock them out or brute-force temp password windows."},
+      {"endpoint": "POST /api/auth/logout", "issue": "Requires an active session (Depends(current_user)) — a client whose access token already expired gets 401 instead of a friendly 200. Consider making logout tolerant of expired/missing tokens and just clearing cookies."},
+      {"endpoint": "GET /api/progress (streak calc)", "issue": "Streak uses UTC dates instead of user-local timezone (JST/WIB). A learner completing a quiz at 10pm WIB may see the streak day off by one. PRD implies daily streak; consider timezone-aware bucketing (frontend supplies TZ or backend uses Asia/Jakarta)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration10_full.py",
+    "/app/test_reports/pytest/iter10.xml"
+  ],
+  "action_items": [
+    "P0 SECURITY: Fix /api/auth/forgot-password — do NOT return temporary_password in the JSON response. Recommended flow: generate a one-time reset token (short TTL), store hashed token in users doc, return only a generic success message; add a companion POST /api/auth/reset-password?token=... endpoint that verifies the token and lets the user set a new password. Until real email delivery is wired, at least gate this behind admin auth or CAPTCHA and never expose the plaintext.",
+    "Return uniform 200 for unknown emails in forgot-password to prevent enumeration.",
+    "Add rate limiting on /api/auth/forgot-password (same 5-per-15min IP+email counter as login).",
+    "Make /api/auth/logout accept requests without a valid session (idempotent) — currently returns 401 for expired sessions.",
+    "Consider timezone-aware streak calculation in GET /api/progress.",
+    "Fix pre-existing test-authoring bugs flagged in iteration 9: /app/backend/tests/test_bab01_seed.py uses wrong response key ('items' vs 'cards') and doesn't reset chapter 1 before asserting quiz_bunpo count of 5."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 1042 lines — split into routers (auth/chapters/admin/library/sr) per prior iterations.",
+    "PAD_JOBS is in-memory only — restart loses in-flight jobs. Backlog item P2 in PRD already tracks this.",
+    "forgot-password writes must_change_password=True but there is no server-side enforcement that other endpoints reject calls when must_change_password is set — the flag is only informational. If enforced-on-first-login is intended, add a guard in current_user() or specific endpoints.",
+    "seed_chapters is insert-only-missing (idempotent). Note this also means source-of-truth edits in seed_data/ files after a chapter is seeded will NOT propagate — admin reset endpoint is the only way to sync. Document this caveat.",
+    "In /library/quiz `campuran`, when book/bab scope has fewer than 5 items of a kind, that sub-list is short and the final blended count may be <15 without any error — consider padding from other kinds or communicate short-result to UI.",
+    "COOKIE_SECURE is derived from env; verify HttpOnly + SameSite=lax + secure=True on production — currently correct. But CORS default falls back to ['*'] when both FRONTEND_URL and CORS_ORIGINS are empty — with allow_credentials=True, browsers reject '*'. Ensure FRONTEND_URL is always set in prod."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration10_full.py (new, 34 tests)"
+  ],
+  "success_rate": {"backend": "100% (34/34) in iteration_10 suite", "frontend": "smoke tests pass (nav, guards, filters, tabs, mobile 390 no overflow, hamburger present, no relevant console errors beyond expected 401 from /auth/me on unauth pages)"},
+  "test_credentials": "Admin: mpdigitech.id@gmail.com / Admin@2026 (verified working; temporarily changed then restored during forgot-password bug test).",
+  "seed_data_creation": "Registered several TEST_iter10_* learner accounts (ephemeral, not cleaned). One SM-2 card_review created for card 'kanji|1|私'. Chapter titles for #3 restored via reset. login_attempts cleared at end.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The CRITICAL forgot-password leak is confirmed and reproducible; main agent MUST fix before ship. Iteration 10 test file is idempotent-ish but touches admin password briefly — if it fails partway, run `mongosh test_database --eval 'db.login_attempts.deleteMany({})'` and verify admin can login with Admin@2026 (if not, main agent must re-seed via ADMIN_PASSWORD env). Pre-existing test bugs in /app/backend/tests/test_bab01_seed.py remain unfixed per iteration 9 notes; do not conflate their failures with iter-10 changes. pytest.ini pins -n 2 --dist loadscope; export REACT_APP_BACKEND_URL to run.",
+  "rca of the issue": "CRITICAL forgot-password leak: In /app/backend/server.py lines 278-293, the handler generates a random password via secrets.token_urlsafe(9), bcrypt-hashes it into users.password_hash, and RETURNS the plaintext temporary in the JSON response ({'message':..., 'temporary_password': temporary}). This is documented as such (P2 backlog: 'Real email password reset (Resend integration)') — the current dev-mode shortcut is exposing the temp password directly. Because forgot-password has NO auth and NO rate limit, any attacker who knows an email (including the admin email in memory/test_credentials.md) can (1) POST to /api/auth/forgot-password, (2) receive the plaintext temp password, (3) log in and access all admin endpoints. Reproduction: `curl -X POST $URL/api/auth/forgot-password -d '{\"email\":\"mpdigitech.id@gmail.com\"}' -H 'Content-Type: application/json'` returns HTTP 200 with `temporary_password` field; that value succeeds against /api/auth/login. Mitigation options: (a) remove `temporary_password` from response — return only the message; store a hashed one-time token and add /api/auth/reset-password?token=X endpoint; (b) send temp password via email using Resend/emergentintegrations; (c) as short-term stop-gap, require admin auth to trigger for a specific email. Additionally add IP+email rate limit and switch 404-on-unknown-email to generic 200 response to avoid user enumeration."
+}

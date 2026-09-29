@@ -18,6 +18,39 @@ export default function Admin() {
   return <AdminList />;
 }
 
+function ResetUserPassword() {
+  const [email, setEmail] = useState("");
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState("");
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(""); setResult(null);
+    try {
+      const r = await api.post("/admin/users/reset-password", { email });
+      setResult(r.data);
+    } catch (x) { setError(errorText(x)); }
+  };
+  return (
+    <form className="pad-all-panel" onSubmit={submit} data-testid="admin-reset-password-form">
+      <div>
+        <b>Reset password pengguna</b>
+        <div className="muted small">Buat password sementara untuk pengguna yang lupa password.</div>
+      </div>
+      <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+             placeholder="email@pengguna.com" data-testid="admin-reset-email-input" />
+      <button className="tiny-btn accent" data-testid="admin-reset-submit">Buat password sementara</button>
+      {result && (
+        <div className="temporary-box" data-testid="admin-reset-result">
+          <b>{result.email}</b>
+          <strong data-testid="admin-reset-temp-password">{result.temporary_password}</strong>
+          <span>{result.message}</span>
+        </div>
+      )}
+      {error && <div className="error" data-testid="admin-reset-error">{error}</div>}
+    </form>
+  );
+}
+
 function AdminList() {
   const [chapters, setChapters] = useState([]);
   const [busy, setBusy] = useState(null);
@@ -114,6 +147,7 @@ function AdminList() {
         </div>
       )}
 
+      <ResetUserPassword />
       {notice && <div className="notice" data-testid="admin-notice">{notice}</div>}
       {error && <div className="error" data-testid="admin-error">{error}</div>}
       <div className="admin-table-wrap">

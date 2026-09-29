@@ -56,6 +56,26 @@
 .kanji-stroke.loading { color: var(--muted); font-size: 22px; }
 .kanji-stroke-svg { width: 100%; height: 100%; }
 .kanji-stroke-svg svg { width: 100%; height: 100%; display: block; }
+.kvg-svg { width: 100%; height: 100%; display: block; }
+.kvg-grid line { stroke: #e3ddd0; stroke-width: .6; stroke-dasharray: 2 2; }
+.kvg-svg path, .stroke-step path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.kvg-ghost { stroke: #ebe6da; stroke-width: 3; }
+.kvg-draw { stroke: var(--ink); stroke-width: 3.2; stroke-dasharray: 1; stroke-dashoffset: 1; animation: kvgDraw .55s ease forwards; }
+@keyframes kvgDraw { to { stroke-dashoffset: 0; } }
+.stroke-steps { display: flex; flex-wrap: wrap; gap: 8px; }
+.stroke-step { position: relative; width: 64px; height: 64px; background: #fdfbf4; border: 1px solid var(--line); border-radius: 8px; animation: stepIn .35s ease both; }
+.stroke-step svg { width: 100%; height: 100%; display: block; }
+.stroke-step span { position: absolute; top: 2px; left: 5px; font-size: 10px; font-weight: 700; color: var(--red); }
+.kvg-done { stroke: #3a4a50; stroke-width: 4; }
+.kvg-current { stroke: var(--red); stroke-width: 5; }
+@keyframes stepIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.stroke-panel { grid-column: 1 / -1; border-top: 1px solid var(--line); padding: 16px 18px; display: grid; grid-template-columns: 1fr; justify-items: center; gap: 14px; }
+.stroke-toggle { margin-top: 8px; justify-self: start; }
+.kanji-scope-bab { margin-top: 12px; max-width: 360px; }
+@media (max-width: 760px) {
+  .stroke-panel { grid-template-columns: 1fr; justify-items: center; }
+  .stroke-step { width: 54px; height: 54px; }
+}
 .stroke-replay {
   position: absolute; bottom: 10px; right: 10px;
   width: 32px; height: 32px; border-radius: 50%;
@@ -145,3 +165,6 @@
   .bp-list li { grid-template-columns: 50px 1fr; }
   .bp-list li small { grid-column: 1 / -1; text-align: left; }
 }
+
+.kanji-stroke-order { display: grid; gap: 10px; }
+.kanji-grid { align-items: start; }

@@ -31,7 +31,7 @@ export default function AuthPage({ mode }) {
     if (!form.email) return setError("Isi email dulu.");
     try {
       const r = await api.post("/auth/forgot-password", { email: form.email });
-      setTemporary(r.data.temporary_password);
+      setTemporary(r.data.message);
     } catch (x) {
       setError(errorText(x));
     }
@@ -76,10 +76,9 @@ export default function AuthPage({ mode }) {
           </button>
         )}
         {temporary && (
-          <div className="temporary-box" data-testid="temporary-password-popup">
-            <b>Password sementara</b>
-            <strong>{temporary}</strong>
-            <span>Pakai untuk masuk, lalu ganti password segera di dashboard.</span>
+          <div className="temporary-box" data-testid="forgot-password-notice">
+            <b>Lupa password</b>
+            <span>{temporary}</span>
           </div>
         )}
         <p className="switch-copy">

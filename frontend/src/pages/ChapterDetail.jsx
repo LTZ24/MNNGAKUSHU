@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api } from "@/lib/api";
 import { Ruby } from "@/components/Ruby";
+import KanjiStroke, { StrokeSteps } from "@/components/KanjiStroke";
 
 const TABS = [
   { id: "bunpo", label: "Bunpou", subtitle: "Tata bahasa" },
@@ -116,6 +117,7 @@ function KotobaView({ items }) {
 }
 
 function KanjiView({ items }) {
+  const [open, setOpen] = useState(null);
   if (!items.length) return <div className="empty-state">Bab ini belum memuat kanji baru.</div>;
   return (
     <div className="kanji-grid">
@@ -127,6 +129,9 @@ function KanjiView({ items }) {
             <div className="kanji-row"><small>訓</small><b>{k.kunyomi || "—"}</b></div>
             <div className="kanji-row"><small>意味</small><b>{k.meaning}</b></div>
             <div className="kanji-row"><small>画</small><b>{k.stroke_count} coretan</b></div>
+            <button className="tiny-btn stroke-toggle" onClick={() => setOpen(open === k.id ? null : k.id)} data-testid={`stroke-toggle-${k.character}`}>
+              {open === k.id ? "Tutup urutan goresan" : "Lihat urutan goresan"}
+            </button>
             {k.jukugo?.length > 0 && (
               <div className="jukugo-list">
                 {k.jukugo.map((j, i) => (
@@ -138,6 +143,12 @@ function KanjiView({ items }) {
               </div>
             )}
           </div>
+          {open === k.id && (
+            <div className="stroke-panel" data-testid={`stroke-panel-${k.character}`}>
+              <KanjiStroke character={k.character} size={130} />
+              <StrokeSteps character={k.character} />
+            </div>
+          )}
         </div>
       ))}
     </div>
