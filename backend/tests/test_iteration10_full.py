@@ -96,47 +96,28 @@ class TestAuth:
         r6 = s.post(f"{BASE}/auth/login", json={"email": email, "password": "GoodPass1!"})
         assert r6.status_code == 429, f"expected 429 after 5 fails; got codes={codes}, then {r6.status_code}"
 
-    def test_forgot_password_leaks_temporary_in_response(self):
-        """SECURITY: /auth/forgot-password returns temporary_password to caller.
-
-        This is an account takeover vector: anyone can request a valid email
-        and receive the plaintext new password in the response.
-        """
+    def test_forgot_password_no_leak_generic_message(self):
+        """Post-fix: forgot-password returns only generic message, no temp password."""
         s = requests.Session()
         email = f"test_iter10_fp_{uuid.uuid4().hex[:6]}@ex.com"
         s.post(f"{BASE}/auth/register", json={"email": email, "password": "OrigPass1!"})
         r = requests.post(f"{BASE}/auth/forgot-password", json={"email": email})
         assert r.status_code == 200
-        body = r.json()
-        # Bug confirmation: temporary_password is exposed
-        assert "temporary_password" in body, "unexpected: bug appears fixed - please update severity"
-        temp = body["temporary_password"]
-        # Prove it works: attacker can now login
-        li = requests.post(f"{BASE}/auth/login", json={"email": email, "password": temp})
-        assert li.status_code == 200, f"temp password should work: {li.status_code}"
+        assert "temporary_password" not in r.json()
 
-    def test_forgot_password_user_enumeration(self):
-        """Endpoint returns 404 for unknown email = user enumeration leak."""
+    def test_forgot_password_unknown_generic_200(self):
         r = requests.post(f"{BASE}/auth/forgot-password",
                           json={"email": f"nobody_{uuid.uuid4().hex[:6]}@x.z"})
-        assert r.status_code == 404  # documents the leak
+        assert r.status_code == 200
 
-    def test_forgot_password_admin_vulnerable(self):
-        """Also confirms admin account is exposed to same bug - critical."""
+    def test_forgot_password_admin_no_takeover(self):
         r = requests.post(f"{BASE}/auth/forgot-password", json={"email": ADMIN_EMAIL})
-        # This is CRITICAL: anyone can steal admin. We test it works then restore.
-        if r.status_code == 200 and "temporary_password" in r.json():
-            temp = r.json()["temporary_password"]
-            # Attacker logs in as admin
-            s = requests.Session()
-            li = s.post(f"{BASE}/auth/login", json={"email": ADMIN_EMAIL, "password": temp})
-            assert li.status_code == 200, "confirmed critical: admin takeover succeeded"
-            # Restore admin password so subsequent tests / user access is unaffected
-            cp = s.post(f"{BASE}/auth/change-password",
-                        json={"current_password": temp, "new_password": ADMIN_PASSWORD})
-            assert cp.status_code == 200, f"failed to restore admin pw: {cp.text}"
-        else:
-            pytest.skip("forgot-password behavior changed; recheck")
+        assert r.status_code == 200
+        assert "temporary_password" not in r.json()
+        # Admin login must still work
+        li = requests.post(f"{BASE}/auth/login",
+                           json={"email": ADMIN_EMAIL, "password": ADMIN_PASSWORD})
+        assert li.status_code == 200
 
     def test_change_password_with_wrong_current(self, learner_session):
         r = learner_session.post(f"{BASE}/auth/change-password",

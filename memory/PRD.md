@@ -38,6 +38,16 @@ Web app PWA untuk belajar Bahasa Jepang berdasarkan Minna no Nihongo 1 & 2. Data
 - Mobile responsive: hamburger nav, hero heading di-scale-down, menu tile 1-col, stat tiles 2-col, chapter grid 2-col di small screen.
 - 27/27 backend tests lolos (13 lama + 14 baru).
 
+### 2026-06 — Clone + Bug-fix + Stroke order (this session)
+- Repo NihongoGakushu2v2 cloned as-is; env: JWT_SECRET, ADMIN_EMAIL/PASSWORD (mpdigitech.id@gmail.com), EMERGENT_LLM_KEY, FRONTEND_URL.
+- SECURITY: forgot-password no longer leaks/changes password (generic msg). New admin-only POST /api/admin/users/reset-password + Admin UI panel.
+- Logout works without session; lockout counter expires after 15 min; dropped dangerous TTL index on users.reset_expires_at.
+- Streak uses all attempts + user timezone (X-Timezone header, default Asia/Jakarta).
+- Chapter detail quiz_susun exposes shuffled tokens (no answers).
+- Furigana: okurigana no longer duplicated (Ruby.jsx splitOkurigana) — 766 affected segments.
+- Kanji stroke order: animation + numbered step images (free KanjiVG CDN) on /kanji flashcard and per-bab Kanji tab; /kanji gets 'Per Bab' scope.
+- Tests: iteration_11 48/48 backend pass, frontend flows pass.
+
 ## Prioritized Backlog
 ### P1
 - Full Furigana editor untuk kaiwa dialog lines + kanji jukugo (saat ini hanya kotoba).
@@ -47,7 +57,7 @@ Web app PWA untuk belajar Bahasa Jepang berdasarkan Minna no Nihongo 1 & 2. Data
 
 ### P2
 - Move PAD_JOBS ke Mongo agar tahan restart & multi-worker.
-- Real email password reset (Resend integration).
+- Real email password reset (Resend integration) — currently admin-assisted reset.
 - Offline PWA sync queue.
 - Audit log admin actions.
 - Bahasa UI toggle (ID/EN/JP).

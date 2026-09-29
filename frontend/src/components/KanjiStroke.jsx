@@ -7,7 +7,7 @@ const cache = new Map();
 function loadStrokes(ch) {
   if (!cache.has(ch)) {
     const cp = ch.codePointAt(0).toString(16).padStart(5, "0");
-    cache.set(ch, fetch(`${CDN}/${cp}.svg`)
+    cache.set(ch, fetch(`${CDN}/${cp}.svg`, { signal: AbortSignal.timeout?.(8000) })
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error("no svg"))))
       .then((txt) => {
         const paths = [...txt.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);

@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 11 full regression on all fixes/new features from review request. 48/48 backend pytest tests PASS (test_iteration11_full.py new + updated test_iteration10_full.py). Frontend Playwright validated: (1) forgot-password shows generic notice with NO temp password (both API and UI); (2) admin reset-password endpoint returns temp_password only to admin, learner 403, anon 401, unknown 404; UI at /admin populates admin-reset-temp-password on success; (3) POST /auth/logout works without session (200); (4) 5-fail lockout → 429 confirmed; (5) GET /progress accepts X-Timezone (Asia/Tokyo ok, invalid tz falls back without 500); (6) chapter detail quiz_susun has tokens + correct_length, no correct_order; (7) Ruby.jsx furigana: 0 duplicate okurigana across 59 rubies in /bab/4 Kotoba — visual verification shows 起<rt>お</rt>きます, 寝<rt>ね</rt>ます correctly; (8) /kanji: all 4 scope tabs (kanji-book-1/2/all/bab) render; Per Bab shows kanji-pick-bab then bab-picker; picking bab 3 loads 135 kanji chip; kanji-stroke-{char} animates, stroke-replay works, kanji-stroke-order strip renders 7 steps for 私 (7 strokes), kanji-prev/next updates strokes; (9) /bab/4 kanji tab: stroke-toggle-{char} opens/closes stroke-panel-{char}; (10) Mobile 390 no horizontal overflow on /kanji Per Bab OR /bab/4 kanji tab with panel open (scrollWidth==390). No regressions in auth, quiz types, progress fields, admin CRUD, publish toggle, pad-all polling. login_attempts cleared at end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration11_full.py",
+    "/app/backend/tests/test_iteration10_full.py",
+    "/app/test_reports/pytest/iter11.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1058 lines — still recommended to split into routers/ (auth, chapters, admin, library, sr) for maintainability.",
+    "KanjiStroke.jsx uses cdn.jsdelivr.net/gh/KanjiVG at runtime — no CSP/hosting fallback if CDN blocked; consider self-hosting or preloading key kanji SVGs.",
+    "AuthPage.jsx `reset()` renders whatever `r.data.message` is inside temporary-box (data-testid forgot-password-notice) — safe because backend now returns only the generic string; ensure future backend changes never re-add sensitive fields.",
+    "Admin.jsx ResetUserPassword displays the temp password in plain text on screen — acceptable per spec (admin gives it to user privately), but consider adding a copy-to-clipboard button and auto-hide after N seconds.",
+    "KanjiVG fetch has no timeout — a slow CDN could keep the card in perpetual 'loading' state; add AbortController with ~5s timeout and set 'fallback' state on timeout."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration11_full.py (new, 15 tests)",
+    "/app/backend/tests/test_iteration10_full.py (updated 3 forgot-password tests to assert the fix)"
+  ],
+  "success_rate": {"backend": "100% (48/48)", "frontend": "100% of tested flows"},
+  "test_credentials": "Admin: mpdigitech.id@gmail.com / Admin@2026 (verified working after all tests; admin password NOT touched by this iteration).",
+  "seed_data_creation": "Several test_iter11_*@ex.com learner accounts registered ephemerally. One learner had must_change_password briefly set + password rotated to NewLearn1! via admin-reset flow. login_attempts cleared at end via mongosh.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All iteration 11 items pass. If the CDN cdn.jsdelivr.net/gh/KanjiVG is unreachable, KanjiPage will show fallback text (not a crash). To retest kanji flashcard Per Bab: navigate /kanji → click kanji-book-bab → fill bab-picker-input with '3' + Enter → expect kanji-count chip populated, kanji-stroke-{char} rendering, stroke-steps-{char} with N step-elements where N == card.stroke_count. login_attempts must be cleared between lockout tests. Do NOT change admin password."
+}
