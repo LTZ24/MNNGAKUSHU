@@ -46,6 +46,7 @@ Web app PWA untuk belajar Bahasa Jepang berdasarkan Minna no Nihongo 1 & 2. Data
 - Chapter detail quiz_susun exposes shuffled tokens (no answers).
 - Furigana: okurigana no longer duplicated (Ruby.jsx splitOkurigana) — 766 affected segments.
 - Kanji stroke order: animation + numbered step images (free KanjiVG CDN) on /kanji flashcard and per-bab Kanji tab; /kanji gets 'Per Bab' scope.
+- Double-furigana fix round 2: removed duplicate hiragana under kanji examples; DSL markup in seed words fixed (dsl._word_spec) + startup DB repair (fix_word_markup); RubyText renders '|' markup and kanji(かな) parentheses in quiz options/stems, kaiwa speakers, keterangan, kartu backs. iteration_12 all pass.
 - Tests: iteration_11 48/48 backend pass, frontend flows pass.
 
 ## Prioritized Backlog

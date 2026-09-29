@@ -1,0 +1,26 @@
+{
+  "summary": "Iteration 12 — Furigana / DSL-leak regression. Backend: 19/19 pytest PASS (test_iteration12_furigana.py) covering /api/library/kotoba and /api/library/kanji for bab 1,4,5,11,26,27,49 (deep-walk scan for '|' in every string field except *.id), chapter-detail segment scan for bab 1,4,5,11, and doubled-kana regression across all 50 chapters (私立 style 'しりつしりつ' would fail — none found). Frontend Playwright over 7 chapters × 4 tabs (kotoba/kanji/bunpo/kaiwa) + /kanji flashcards + /kartu + /quiz Bunpo Minna 2 + Campuran, both mid-quiz options AND submitted results page: (a) 0 occurrences of '|' pipe in visible innerText anywhere; (b) 0 <ruby> with duplicated <rt> reading; (c) 0 okurigana repetitions between <rt> and following text; (d) quiz options render ruby correctly (e.g. 田中 with たなか furigana, 先生 with せんせい, 人 with ひと) and selecting+submitting still grades (results page reached). Kanji flashcards Per Bab on mobile 390 showed no horizontal overflow (scrollWidth == 390). Ruby.jsx splitOkurigana + RubyText parseSpec/parseParen working as intended. login_attempts cleared. Admin password unchanged.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_iteration12_furigana.py",
+    "/app/test_reports/pytest/iter12.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py still 1078 lines — should be split into routers/ (auth, chapters, admin, library, sr, quiz).",
+    "fix_word_markup runs on every startup and touches all chapters; consider gating with a version flag in a metadata collection so repeat cold-starts don't re-scan the entire corpus.",
+    "Ruby.jsx splitOkurigana silently falls back to a single-ruby when the pattern doesn't match — good defensive behavior, but consider console.warn in dev to surface future DSL mismatches (e.g. new seed data with irregular okurigana).",
+    "RubyText renders the DSL string when the '|' regex matches, but a text like 'a|b' with no Japanese would still be parsed as ruby with reading 'b'. If the app ever gains non-JP content, restrict parseSpec to tokens whose head contains CJK.",
+    "No unit tests exist for splitOkurigana / parseSpec / parseParen — recommend adding a small React/JS test file so DSL parsing regressions are caught before hitting the UI."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iteration12_furigana.py (new, 19 tests)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% of tested flows"},
+  "test_credentials": "Admin: mpdigitech.id@gmail.com / Admin@2026 (untouched). Learner: registered ephemeral testrun*@ex.com / Learner1!",
+  "seed_data_creation": "Two ephemeral learner accounts (testrun*@ex.com). login_attempts collection cleared at end.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All furigana / DSL-leak items from iteration 12 are green. Recheck logic lives in /app/backend/tests/test_iteration12_furigana.py — the _walk_for_pipe helper recursively scans any JSON structure and skips only *.id fields (quiz IDs legitimately contain '|'). If future changes add new DSL sources, extend the tested bab set. For frontend, a bad <ruby><rt> is detected by comparing rt.slice(0,len/2)==rt.slice(len/2) and by matching rt trailing kana against the immediately following text node (see script). Ruby.jsx splitOkurigana + RubyText parseSpec/parseParen are the single source of truth for DSL rendering."
+}
