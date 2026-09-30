@@ -41,16 +41,21 @@ export default function Header() {
                    className={({ isActive }) => `topnav-link admin ${isActive ? "active" : ""}`}
                    data-testid="nav-admin">Admin</NavLink>
         )}
+        {user && (
+          <button className="topnav-link nav-logout show-sm" onClick={onLogout} data-testid="nav-logout-button">
+            Keluar <small>({displayName})</small>
+          </button>
+        )}
       </nav>
       <div className="top-actions">
         {user ? (
           <>
             <span className="avatar hide-sm" data-testid="user-avatar">{displayName?.slice(0, 1).toUpperCase()}</span>
             <span className="user-name hide-sm">{displayName}</span>
-            <button className="icon-btn" onClick={onLogout} data-testid="logout-button" aria-label="Keluar">↩</button>
+            <button className="icon-btn hide-sm" onClick={onLogout} data-testid="logout-button" aria-label="Keluar">↩</button>
           </>
         ) : (
-          <Link className="outline-button small" to="/login" data-testid="login-nav">Masuk</Link>
+          <Link className="outline-button small" to="/login" data-testid="login-nav" onClick={close}>Masuk</Link>
         )}
       </div>
     </header>
